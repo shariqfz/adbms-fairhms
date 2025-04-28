@@ -251,8 +251,8 @@ class BiGreedy:
                           max_m: int = 1000) -> Tuple[List[int], float]:
         start_time = time.time()
         dim = data[0].dimension if data else 0
-        m = min(dim * k * 2, max_m, len(utility_funcs))  # Match C++: m = dim*k*2
-        gamma = math.ceil(math.log2(2 * m / epsilon))  # Base-2 logarithm
+        m = min(dim * k * 2, max_m, len(utility_funcs)) 
+        gamma = math.ceil(math.log2(2 * m / epsilon)) 
 
         # Initialize max_utility_D for initial m utilities
         max_utility_D = []
@@ -534,6 +534,8 @@ class BiGreedyPP:
         m = len(utility_samples)
         
         # Multi-round lazy greedy search
+        # gamma = math.ceil(math.log2(2 * m / epsilon))
+        m = min(k * dim * 10, max_m, len(utility_funcs))  # Match C++ logic
         gamma = math.ceil(math.log2(2 * m / epsilon))
         result, tau = BiGreedy.bi_search(
             grouped_data, fairness_constraints, data, group_id,

@@ -23,6 +23,8 @@ from hs import HSAlgorithm
 from epskernel import EpsKernel
 from bigreedy import BiGreedyPP  
 
+np.random.seed(632)
+
 class Algorithms:
     @staticmethod
     def find_point_indices(selected_points: List[Point], data: List[Point]) -> List[int]:

@@ -16,11 +16,7 @@ from my_utils import (
     write_results_eld
 )
 from bigreedy import BiGreedy
-from greedy import GreedyAlgorithms
 from intcov import run_intcov
-from dmm import DMM
-from hs import HSAlgorithm
-from epskernel import EpsKernel
 from bigreedy import BiGreedyPP, BiGreedyPPOptimized
 
 np.random.seed(632)

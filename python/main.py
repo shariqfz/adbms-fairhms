@@ -21,6 +21,7 @@ from intcov import run_intcov
 from dmm import DMM
 from hs import HSAlgorithm
 from epskernel import EpsKernel
+from bigreedy import BiGreedyPP  
 
 class Algorithms:
     @staticmethod
@@ -177,18 +178,18 @@ def run_baselines(data_points: List[Point], grouped_data: Dict[int, List[Point]]
     times[12] = time_alg
     print(f"time taken: {time_alg}\tmhr: {mhrs[12]}\n")
 
-def write_aggregated_results(dataset: str, k: int, is_2d: int, mhrs: List[float], times: List[float]) -> None:
-    result_dir = "../result"
-    os.makedirs(result_dir, exist_ok=True)  # Create the directory if it doesn't exist
+def write_aggregated_results(dataset: str, k: int, mhrs: List[float], times: List[float]) -> None:
+    result_dir = "./result"
+    os.makedirs(result_dir, exist_ok=True)  
 
-    out_file = f"{result_dir}/{dataset[:-4]}_{k}.data"
+    out_file = f"{result_dir}/{dataset[:-4]}_{k}.txt"
     with open(out_file, 'a') as fout:
-        if is_2d:
+        if k == 2:
             fout.write(f"{mhrs[0]:8.2f}\t")
         for i in range(1, 10):
             fout.write(f"{mhrs[i]:8.2f}\t")
         fout.write("\n")
-        if is_2d:
+        if k == 2:
             fout.write(f"{times[0]:8.2f}\t")
         for i in range(1, 10):
             fout.write(f"{times[i]:8.2f}\t" if mhrs[i] >= 0 else f"{'-1':8}\t")
@@ -256,7 +257,6 @@ def main():
     parser = argparse.ArgumentParser(description="Run fairness-aware selection algorithms")
     parser.add_argument("dataset", help="Dataset name")
     parser.add_argument("k", type=int, help="Number of items to select")
-    parser.add_argument("is_2d", type=int, help="2D algorithm flag (0/1)")
     args = parser.parse_args()
 
     # dataset_path = f"../data/{args.dataset}"
@@ -277,7 +277,7 @@ def main():
         mhrs = [-1.0] * num_algs
         times = [-1.0] * num_algs
 
-        if args.is_2d and len(fairness_constraints) < 7:
+        if (args.k == 2) and len(fairness_constraints) < 7:
             with tempfile.NamedTemporaryFile(mode='w+', delete=False) as temp_file:
                 temp_file.write("2\n")
                 for p in data_points:
@@ -343,11 +343,22 @@ def main():
         times[2] = time_alg
         print(f"time taken: {time_alg}\tmhr: {mhrs[2]}\n")
 
-        # run_baselines(data_points, grouped_data, fairness_constraints, group_id, args.k, mhrs, times)
-        write_aggregated_results(args.dataset, args.k, args.is_2d, mhrs, times)
+        # Run Bi-Greedy++
+        print("Running Bi-Greedy++...")
+        result, time_alg = BiGreedyPP.run_bi_greedy_pp(
+            grouped_data, fairness_constraints, data_points, group_id,
+            0.02, utility_funcs, args.k, max_m=1000, sample_ratio=0.1
+        )
+        mhr = calculate_mhr(data_points, result, utility_funcs)
+        mhrs[3] = mhr  # Assign to a new index (e.g., 15)
+        times[3] = time_alg
+        print(f"time taken: {time_alg}\tmhr: {mhrs[3]}\n")
 
-        if args.is_2d != 1:
-            run_eld_experiments(data_points, grouped_data, fairness_constraints, group_id, utility_funcs, args.dataset)
+        # run_baselines(data_points, grouped_data, fairness_constraints, group_id, args.k, mhrs, times)
+        write_aggregated_results(args.dataset, args.k, mhrs, times)
+
+        # if args.k != 2 :
+        #     run_eld_experiments(data_points, grouped_data, fairness_constraints, group_id, utility_funcs, args.dataset)
 
 if __name__ == "__main__":
     main()

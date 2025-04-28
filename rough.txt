@@ -1,2 +1,7 @@
 Set-ExecutionPolicy RemoteSigned -Scope CurrentUser
 .\fairhms-env\Scripts\activate
+python python\main.py anti_2_10000_skyline.txt 2 1
+
+
+python python\main.py anti_2_10000_skyline.txt 2 
+python python\main.py adultSky.txt 5

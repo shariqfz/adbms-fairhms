@@ -94,10 +94,17 @@ class Point:
         return np.dot(self.coordinates, np.array(coord, dtype=np.float64))
 
     def get_category(self, cate_id):
-        return self.categories[cate_id]
+        return self.categories[int(cate_id)]
 
     def get_category_dim(self):
         return len(self.categories)
 
     def __repr__(self):
         return f"Point(dimension={self.dimension}, id={self.id}, coordinates={self.coordinates}, categories={self.categories})"
+    
+    @staticmethod
+    def random_sphere(dim: int) -> 'Point':
+        """Generate a random point on a unit sphere."""
+        vec = np.random.normal(size=dim)
+        vec /= np.linalg.norm(vec)
+        return Point(dimension=dim, coordinates=vec)

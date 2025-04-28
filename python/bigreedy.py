@@ -445,13 +445,15 @@ class BiGreedyPP:
         
         # Initialize marginal gains with a random subset
         subset = np.random.choice(candidate_set, size=int(len(candidate_set)*sample_ratio), replace=False)
-        for p_id in subset:
+        for p_id in tqdm(subset, desc="init marginal gains"):
             p = next(x for x in data if x.id == p_id)
             group = p.get_category(group_id)  # Now group_id is defined
             if fair_counts[group] >= fairness_constraints[group][1]:
                 continue
             current_gain = BiGreedyPP.marginal_gain(p_id, result, utility_funcs, data, tau)
             heapq.heappush(heap, (-current_gain, p_id))  # Max-heap
+
+        print("while loop for lazy greedy")
         
         while len(result) < k and heap:
             _, p_id = heapq.heappop(heap)
@@ -478,6 +480,7 @@ class BiGreedyPP:
                         continue
                     gain = BiGreedyPP.marginal_gain(new_id, result, utility_funcs, data, tau)
                     heapq.heappush(heap, (-gain, new_id))
+        print("while ended")
         return result
 
     @staticmethod
@@ -563,3 +566,207 @@ class BiGreedyPP:
             refined_result.append(candidate[0])
         
         return refined_result, time.time() - start_time
+    
+import heapq
+import math
+import numpy as np
+from typing import List, Dict, Tuple
+from collections import defaultdict
+from point import Point
+
+class BiGreedyPPOptimized:
+    @staticmethod
+    def lazy_greedy(
+        data: List[Point],
+        utility_funcs: List[Point],
+        grouped_data: Dict[int, List[Point]],
+        fairness_constraints: Dict[int, Tuple[int, int, int]],
+        k: int,
+        m: int,
+        gamma: int,
+        epsilon: float,
+        tau: float,
+        group_id: int,
+        sample_ratio: float = 0.1
+    ) -> List[int]:
+        """Vectorized lazy greedy with matrix operations"""
+        # Precompute all utilities upfront
+        utility_matrix = np.array([[p.dotP(uf) for uf in utility_funcs] for p in data])
+        max_utility_D = utility_matrix.max(axis=0)
+        valid_groups = set(fairness_constraints.keys())
+        
+        # Create index mapping and group masks
+        id_to_idx = {p.id: i for i, p in enumerate(data)}
+        group_mask = np.array([p.get_category(group_id) in valid_groups for p in data])
+        
+        # Initialize state
+        current_max = np.zeros_like(max_utility_D)
+        result = []
+        fair_counts = defaultdict(int)
+        candidate_ids = [p.id for p in data]
+        
+        # Vectorized ratio calculation
+        def compute_gains(ids):
+            indices = [id_to_idx[p_id] for p_id in ids]
+            point_utils = utility_matrix[indices]
+            new_ratios = np.minimum(point_utils / max_utility_D, tau)
+            current_ratios = np.minimum(current_max / max_utility_D, tau)
+            return np.min(new_ratios - current_ratios, axis=1)
+        
+        # Initialize heap with sampled candidates
+        valid_candidates = [p_id for p_id in candidate_ids 
+                          if group_mask[id_to_idx[p_id]]]
+        subset = np.random.choice(valid_candidates, 
+                                size=int(len(valid_candidates)*sample_ratio), 
+                                replace=False)
+        gains = compute_gains(subset)
+        heap = [(-g, p_id) for g, p_id in zip(gains, subset)]
+        heapq.heapify(heap)
+        
+        while len(result) < k and heap:
+            _, p_id = heapq.heappop(heap)
+            idx = id_to_idx[p_id]
+            p = data[idx]
+            group = p.get_category(group_id)
+            
+            # Check group constraints
+            lc, uc, _ = fairness_constraints[group]
+            if fair_counts[group] >= uc:
+                continue
+                
+            # Update current maxima
+            point_utils = utility_matrix[idx]
+            current_max = np.maximum(current_max, point_utils)
+            
+            result.append(p_id)
+            fair_counts[group] += 1
+            
+            # Update candidate pool
+            remaining = [x for x in valid_candidates if x not in result]
+            new_sample = np.random.choice(remaining, 
+                                        size=int(len(remaining)*sample_ratio), 
+                                        replace=False)
+            if len(new_sample) > 0:
+                new_gains = compute_gains(new_sample)
+                for g, p_id in zip(new_gains, new_sample):
+                    heapq.heappush(heap, (-g, p_id))
+        
+        return result
+
+    @staticmethod
+    def hierarchical_sampling(dim: int, initial_samples: int = 100, max_depth: int = 3) -> List[Point]:
+        """Vectorized hierarchical sampling"""
+        samples = []
+        current_gen = np.random.randn(initial_samples, dim)
+        current_gen /= np.linalg.norm(current_gen, axis=1, keepdims=True)
+        
+        for _ in range(max_depth):
+            # Generate perturbations for all samples
+            perturbations = 0.1 * np.random.randn(*current_gen.shape)
+            new_gen = current_gen + perturbations
+            new_gen /= np.linalg.norm(new_gen, axis=1, keepdims=True)
+            samples.extend([Point(dim, coords) for coords in new_gen])
+            current_gen = np.vstack([current_gen, new_gen])
+        
+        return samples[:500]  # Cap total samples
+
+    @staticmethod
+    def run_bi_greedy_pp(
+        grouped_data: Dict[int, List[Point]],
+        fairness_constraints: Dict[int, Tuple[int, int, int]],
+        data: List[Point],
+        group_id: int,
+        epsilon: float,
+        utility_funcs: List[Point],
+        k: int,
+        max_m: int = 1000,
+        sample_ratio: float = 0.1
+    ) -> Tuple[List[int], float]:
+        start_time = time.time()
+        dim = data[0].dimension if data else 0
+        
+        # Vectorized utility sampling
+        utility_samples = BiGreedyPPOptimized.hierarchical_sampling(dim)
+        m = min(len(utility_samples), max_m, len(utility_funcs))
+        
+        # Precompute all utilities once
+        utility_matrix = np.array([[p.dotP(uf) for uf in utility_samples[:m]] for p in data])
+        max_utility_D = utility_matrix.max(axis=0)
+        
+        # Binary search with matrix operations
+        result = []
+        tau_low, tau_high = 0.0, 1.0
+        for _ in range(20):  # Limited iterations
+            tau = (tau_low + tau_high) / 2
+            current_result = BiGreedyPPOptimized.vectorized_selection(
+                data, utility_matrix, max_utility_D, 
+                grouped_data, fairness_constraints, group_id, k, tau
+            )
+            if len(current_result) >= k:
+                result = current_result[:k]
+                tau_low = tau
+            else:
+                tau_high = tau
+        
+        return result, time.time() - start_time
+
+    @staticmethod
+    def vectorized_selection(data, utility_matrix, max_utility_D, 
+                            grouped_data, fairness_constraints, 
+                            group_id, k, tau):
+        """Vectorized selection core with safe division"""
+        valid_groups = set(fairness_constraints.keys())
+        group_ratios = {}
+        
+        # Handle zero max utilities
+        epsilon = 1e-10
+        safe_max_utility = np.where(max_utility_D == 0, epsilon, max_utility_D)
+        
+        # Precompute group-wise ratios with safe division
+        for g in valid_groups:
+            group_indices = [i for i, p in enumerate(data) 
+                            if p.get_category(group_id) == g]
+            if not group_indices:
+                continue
+            
+            with np.errstate(invalid='ignore'):  # Suppress warnings during division
+                ratios = np.minimum(utility_matrix[group_indices] / safe_max_utility, tau)
+                ratios = np.nan_to_num(ratios, nan=0.0, posinf=0.0, neginf=0.0)
+            
+            group_ratios[g] = (group_indices, np.min(ratios, axis=1))
+        
+        # Greedy selection with group constraints
+        result = []
+        fair_counts = defaultdict(int)
+        remaining = k
+        
+        while remaining > 0:
+            best_score = -np.inf
+            best_idx = -1
+            best_group = None
+            
+            # Find best candidate per group
+            for g, (indices, scores) in group_ratios.items():
+                lc, uc, _ = fairness_constraints[g]
+                if fair_counts[g] >= uc:
+                    continue
+                
+                valid_mask = [i not in result for i in indices]
+                if not np.any(valid_mask):
+                    continue
+                
+                current_scores = scores[valid_mask]
+                best_group_idx = np.argmax(current_scores)
+                if current_scores[best_group_idx] > best_score:
+                    best_score = current_scores[best_group_idx]
+                    best_idx = indices[valid_mask][best_group_idx]
+                    best_group = g
+            
+            if best_idx == -1:
+                break
+                
+            result.append(data[best_idx].id)
+            fair_counts[best_group] += 1
+            remaining -= 1
+        
+        return result

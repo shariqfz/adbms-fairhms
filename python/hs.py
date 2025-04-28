@@ -2,6 +2,8 @@ import numpy as np
 from typing import List, Set, Dict, Tuple
 from point import Point
 from rms_utils import RMSUtils
+import time 
+from tqdm import tqdm
 
 class HSApprox:
     @staticmethod
@@ -57,7 +59,7 @@ class HSAlgorithm:
         ndir = RMSUtils.ndir_for_validation(dim)
         random_dirs = RMSUtils.get_random_sphere_points(1.0, dim, ndir, True)
         
-        for direction in random_dirs:
+        for direction in tqdm(random_dirs, desc="Validation directions"):
             core_max = max(fatP[i].dot_product(direction) for i in idxs)
             count = 0
             
@@ -71,7 +73,7 @@ class HSAlgorithm:
 
     @staticmethod
     def hs_by_sampling(fatP: List[Point], dim: int, k: int, 
-                      epsilon: float, sample_size: int) -> List[int]:
+                      epsilon: float, sample_size: int, idxs: List[int]) -> List[int]:
         """
         Generate candidate sets and find hitting set
         """
@@ -85,10 +87,22 @@ class HSAlgorithm:
             topk_indices = RMSUtils.rank_selection_dotp(fatP, direction, k1)[0]
             topk_values = [fatP[i].dot_product(direction) for i in topk_indices]
             
+            if not topk_values:
+                continue  # Handle empty case
+            
             # Threshold for inclusion
             threshold = (1 - epsilon) * topk_values[k-1]
-            candidate_set = set()
             
+            # Check if any existing idxs cover this direction
+            existing_cover = False
+            for idx in idxs:
+                if fatP[idx].dot_product(direction) >= threshold:
+                    existing_cover = True
+                    break
+            if existing_cover:
+                continue  # Skip adding this candidate set
+            
+            candidate_set = set()
             for i, val in zip(topk_indices, topk_values):
                 if val >= threshold:
                     candidate_set.add(i)
@@ -100,6 +114,7 @@ class HSAlgorithm:
         
         # Get hitting set approximation
         return HSApprox.get_hs_approximation(candidate_sets)
+
 
     @staticmethod
     def run_hs(dataP: List[Point], r: int, k: int, 
@@ -114,19 +129,19 @@ class HSAlgorithm:
         if not dataP or r < 1:
             return [], 0.0
         
-        dim = dataP[0].dim
+        dim = dataP[0].dimension
         epsilon = 0.5
         lower, upper = 0.0, 1.0
-        sample_size = 10
         
-        for _ in range(20):  # Max binary search iterations
+        for _ in tqdm(range(20), desc="Binary search"):  # Max binary search iterations
+            sample_size = 10  # Reset sample_size each iteration
             idxs = []
             hsP = []
             current_size = 0
             
             while True:
-                # Get new candidates
-                new_idxs = HSAlgorithm.hs_by_sampling(dataP, dim, k, epsilon/5, sample_size)
+                # Get new candidates with current idxs
+                new_idxs = HSAlgorithm.hs_by_sampling(dataP, dim, k, epsilon/5, sample_size, idxs)
                 idxs = list(set(idxs + new_idxs))
                 hsP = [dataP[i] for i in idxs]
                 

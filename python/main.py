@@ -28,7 +28,7 @@ class Algorithms:
         selected_indices = []
         for p in selected_points:
             for i, data_p in enumerate(data):
-                if data_p.coordinates == p.coordinates:
+                if np.array_equal(data_p.coordinates, p.coordinates):
                     selected_indices.append(i)
                     break
         return selected_indices
@@ -77,6 +77,7 @@ def run_baselines(data_points: List[Point], grouped_data: Dict[int, List[Point]]
                 fairness_constraints: Dict[int, Any], group_id: int,
                 k: int, mhrs: List[float], times: List[float]) -> None:
     # RDP-Greedy on each group
+    print("Running Greedy on each group...")
     time_total = 0.0
     result_greedy = []
     for group in grouped_data:
@@ -88,20 +89,25 @@ def run_baselines(data_points: List[Point], grouped_data: Dict[int, List[Point]]
     mhr = calculate_mhr(data_points, result_greedy, [])
     mhrs[3] = mhr
     times[3] = time_total
+    print(f"time taken: {time_alg}\tmhr: {mhrs[3]}\n")
 
+    print("Running Greedy directly...")
     # RDP-Greedy directly
     selected, time_alg = GreedyAlgorithms.run_greedy(data_points, k)
     result_greedy = Algorithms.find_point_indices(selected, data_points)
     mhr = calculate_mhr(data_points, result_greedy, [])
     mhrs[13] = mhr
     times[13] = time_alg
+    print(f"time taken: {time_alg}\tmhr: {mhrs[13]}\n")
 
     # Fair RDP-Greedy (MRDP)
+    print("Running Matroid-Greedy...")
     selected, time_alg = GreedyAlgorithms.run_matroid_greedy(data_points, k, group_id, grouped_data, fairness_constraints)
     result_greedy = Algorithms.find_point_indices(selected, data_points)
     mhr = calculate_mhr(data_points, result_greedy, [])
     mhrs[8] = mhr
     times[8] = time_alg if mhr >= 0 else -1
+    print(f"time taken: {time_alg}\tmhr: {mhrs[8]}\n")
 
     # DMM-RRMS on each group
     time_total = 0.0
@@ -109,7 +115,7 @@ def run_baselines(data_points: List[Point], grouped_data: Dict[int, List[Point]]
     for group in grouped_data:
         curP = grouped_data[group]
         r = fairness_constraints[group].ki
-        if r < len(curP[0].coord) if curP else 0:
+        if r < len(curP[0].coordinates) if curP else 0:
             continue
         selected, time_alg = DMM.run_dmm_rrms(curP, r)
         time_total += time_alg
@@ -117,6 +123,7 @@ def run_baselines(data_points: List[Point], grouped_data: Dict[int, List[Point]]
     mhr = calculate_mhr(data_points, result_dmm, [])
     mhrs[4] = mhr
     times[4] = time_total
+    print(f"time taken: {time_alg}\tmhr: {mhrs[4]}\n")
 
     # DMM-RRMS directly
     selected, time_alg = DMM.run_dmm_rrms(data_points, k)
@@ -124,26 +131,29 @@ def run_baselines(data_points: List[Point], grouped_data: Dict[int, List[Point]]
     mhr = calculate_mhr(data_points, result_dmm, [])
     mhrs[14] = mhr
     times[14] = time_alg
+    print(f"time taken: {time_alg}\tmhr: {mhrs[14]}\n")
 
     # Eps-Kernel on each group
-    time_total = 0.0
-    result_eps = []
-    for group in grouped_data:
-        curP = grouped_data[group]
-        r = fairness_constraints[group].ki
-        selected, time_alg = EpsKernel.run_eps_kernel(curP, r)
-        time_total += time_alg
-        result_eps.extend(Algorithms.find_point_indices(selected, data_points))
-    mhr = calculate_mhr(data_points, result_eps, [])
-    mhrs[6] = mhr
-    times[6] = time_total
+    # time_total = 0.0
+    # result_eps = []
+    # for group in grouped_data:
+    #     curP = grouped_data[group]
+    #     r = fairness_constraints[group].ki
+    #     selected, time_alg = EpsKernel.run_eps_kernel(curP, r)
+    #     time_total += time_alg
+    #     result_eps.extend(Algorithms.find_point_indices(selected, data_points))
+    # mhr = calculate_mhr(data_points, result_eps, [])
+    # mhrs[6] = mhr
+    # times[6] = time_total
+    # print(f"time taken: {time_alg}\tmhr: {mhrs[6]}\n")
 
-    # Eps-Kernel directly
-    selected, time_alg = EpsKernel.run_eps_kernel(data_points, k)
-    result_eps = Algorithms.find_point_indices(selected, data_points)
-    mhr = calculate_mhr(data_points, result_eps, [])
-    mhrs[11] = mhr
-    times[11] = time_alg
+    # # Eps-Kernel directly
+    # selected, time_alg = EpsKernel.run_eps_kernel(data_points, k)
+    # result_eps = Algorithms.find_point_indices(selected, data_points)
+    # mhr = calculate_mhr(data_points, result_eps, [])
+    # mhrs[11] = mhr
+    # times[11] = time_alg
+    # print(f"time taken: {time_alg}\tmhr: {mhrs[11]}\n")
 
     # HS on each group
     time_total = 0.0
@@ -151,22 +161,27 @@ def run_baselines(data_points: List[Point], grouped_data: Dict[int, List[Point]]
     for group in grouped_data:
         curP = grouped_data[group]
         r = fairness_constraints[group].ki
-        selected, time_alg = HSAlgorithm.run_hs(curP, r)
+        selected, time_alg = HSAlgorithm.run_hs(dataP=curP, r=r, k=1, curSky=[])
         time_total += time_alg
         result_hs.extend(Algorithms.find_point_indices(selected, data_points))
     mhr = calculate_mhr(data_points, result_hs, [])
     mhrs[7] = mhr
     times[7] = time_total
+    print(f"time taken: {time_alg}\tmhr: {mhrs[7]}\n")
 
     # HS directly
-    selected, time_alg = HSAlgorithm.run_hs(data_points, k)
+    selected, time_alg = HSAlgorithm.run_hs(dataP=data_points, r=k, k=1, curSky=[])
     result_hs = Algorithms.find_point_indices(selected, data_points)
     mhr = calculate_mhr(data_points, result_hs, [])
     mhrs[12] = mhr
     times[12] = time_alg
+    print(f"time taken: {time_alg}\tmhr: {mhrs[12]}\n")
 
 def write_aggregated_results(dataset: str, k: int, is_2d: int, mhrs: List[float], times: List[float]) -> None:
-    out_file = f"../result/{dataset[:-4]}_{k}.data"
+    result_dir = "../result"
+    os.makedirs(result_dir, exist_ok=True)  # Create the directory if it doesn't exist
+
+    out_file = f"{result_dir}/{dataset[:-4]}_{k}.data"
     with open(out_file, 'a') as fout:
         if is_2d:
             fout.write(f"{mhrs[0]:8.2f}\t")
@@ -248,7 +263,7 @@ def main():
     dataset_path = os.path.join("data", args.dataset)
     # utils_path = f"../utils/utils_{args.dataset.split('_')[0]}d.txt"
     # utils_path = f"../utils/utils_{args.k}d.txt"
-    utils_path = os.path.join("utils", f"utils_{args.k}d.txt")
+    utils_path = os.path.join("utils", f"utils_{args.k}d_10000.txt")
     max_m = 100000
     num_algs = 15
 
@@ -277,6 +292,7 @@ def main():
             total_k = sum(fc.ki for fc in fairness_constraints.values())
 
             try:
+                print("Running IntCov...")
                 result, time_taken = run_intcov(temp_path, [2], upper_bounds, lower_bounds, total_k)
                 final_result = []
                 fair_counts = defaultdict(int)
@@ -307,6 +323,9 @@ def main():
 
                 mhrs[0] = calculate_mhr(data_points, final_result, utility_funcs)
                 times[0] = time_taken * 1000
+
+                print(f"time taken: {times[0]}\tmhr: {mhrs[0]}\n")
+
             finally:
                 os.remove(temp_path)
 
@@ -322,9 +341,9 @@ def main():
             grouped_data, fairness_constraints, data_points, group_id, 0.04, 0.02, utility_funcs, args.k, max_m)
         mhrs[2] = calculate_mhr(data_points, result, utility_funcs)
         times[2] = time_alg
-        print(f"time taken: {time_alg}\tmhr: {mhrs[1]}\n")
+        print(f"time taken: {time_alg}\tmhr: {mhrs[2]}\n")
 
-        run_baselines(data_points, grouped_data, fairness_constraints, group_id, args.k, mhrs, times)
+        # run_baselines(data_points, grouped_data, fairness_constraints, group_id, args.k, mhrs, times)
         write_aggregated_results(args.dataset, args.k, args.is_2d, mhrs, times)
 
         if args.is_2d != 1:

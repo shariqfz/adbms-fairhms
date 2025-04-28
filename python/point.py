@@ -20,6 +20,10 @@ class Point:
 
     def __mul__(self, factor):
         return Point(coordinates=self.coordinates * factor)
+    
+    def dot_product(self, other: 'Point') -> float:
+        """Compute dot product with another Point"""
+        return sum(a * b for a, b in zip(self.coordinates, other.coordinates))
 
     def get_dimension(self):
         return self.dimension

@@ -36,7 +36,7 @@ class RMSUtils:
             norm = np.linalg.norm(vec)
             if norm > 1e-8:
                 vec = vec / norm * sphere_radius
-            points.append(Point(dim, coord=vec.tolist()))
+            points.append(Point(dim, coordinates=vec.tolist()))
         return points
 
     @staticmethod

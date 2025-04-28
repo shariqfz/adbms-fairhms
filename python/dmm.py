@@ -22,7 +22,7 @@ class DMM:
                 coords[j] = r * math.cos(angle)
                 r *= math.sin(angle)
             coords[0] = r
-            points.append(Point(dim, coord=coords.tolist()))
+            points.append(Point(dim, coordinates=coords.tolist()))
             
             # Update theta
             for j in range(dim-1):
@@ -64,7 +64,7 @@ class DMM:
     def dmm(points: List[Point], k: int) -> List[Point]:
         if not points:
             return []
-        dim = points[0].dim
+        dim = points[0].dimension
         gamma = 5
         F = DMM.discretize(gamma, dim)
         
@@ -99,7 +99,7 @@ class DMM:
     def dmm_greedy(points: List[Point], k: int) -> List[Point]:
         if not points:
             return []
-        dim = points[0].dim
+        dim = points[0].dimension
         if k < dim:
             raise ValueError("k must be >= dimension")
         
@@ -152,15 +152,19 @@ class DMM:
         return selected[:k]
 
     @staticmethod
-    def run_dmm_greedy(dataP: List[Point], r: int, k: int) -> Tuple[List[Point], float]:
+    # def run_dmm_greedy(dataP: List[Point], r: int, k: int) -> Tuple[List[Point], float]:
+    def run_dmm_greedy(dataP: List[Point], k: int) -> Tuple[List[Point], float]:
+        print("Running DMM-Greedy...")
         start = time.time()
-        result = DMM.dmm_greedy(dataP, r)
+        result = DMM.dmm_greedy(dataP, k)
         elapsed = (time.time() - start) * 1000  # Convert to milliseconds
         return result, elapsed
 
     @staticmethod
-    def run_dmm_rrms(dataP: List[Point], r: int, k: int) -> Tuple[List[Point], float]:
+    # def run_dmm_rrms(dataP: List[Point], r: int, k: int) -> Tuple[List[Point], float]:
+    def run_dmm_rrms(dataP: List[Point], k: int) -> Tuple[List[Point], float]:
+        print("Running DMM-RRMS...")
         start = time.time()
-        result = DMM.dmm(dataP, r)
+        result = DMM.dmm(dataP, k)
         elapsed = (time.time() - start) * 1000
         return result, elapsed

@@ -9,16 +9,16 @@ class GreedyAlgorithms:
     @staticmethod
     def run_greedy(dataP: List[Point], r: int) -> Tuple[List[Point], float]:
         """Greedy algorithm for regret minimization"""
-        print("Running Greedy...")
+        
         start_time = time.time()
-        dim = dataP[0].dim if dataP else 0
+        dim = dataP[0].dimension if dataP else 0
         R = []
         
         if not dataP or r < 1:
             return [], 0.0
 
         # Find initial point with maximum first coordinate
-        max_index = max(range(len(dataP)), key=lambda i: dataP[i].coord[0])
+        max_index = max(range(len(dataP)), key=lambda i: dataP[i].coordinates[0])
         R.append(dataP[max_index])
         selected_indices = [max_index]
 
@@ -49,7 +49,7 @@ class GreedyAlgorithms:
                     # Add equality constraint
                     expr = gp.LinExpr()
                     for j in range(dim):
-                        expr += dataP[i].coord[j] * X[j]
+                        expr += dataP[i].coordinates[j] * X[j]
                     model.addConstr(expr == 1.0, "eq_constraint")
                     
                     # Add inequality constraints
@@ -57,7 +57,7 @@ class GreedyAlgorithms:
                         ineq_expr = gp.LinExpr()
                         ineq_expr += -X[dim]
                         for j in range(dim):
-                            ineq_expr += (dataP[i].coord[j] - p.coord[j]) * X[j]
+                            ineq_expr += (dataP[i].coordinates[j] - p.coordinates[j]) * X[j]
                         model.addConstr(ineq_expr >= 0, f"ineq_{i}_{len(R)}")
                     
                     # Solve optimization
@@ -83,9 +83,9 @@ class GreedyAlgorithms:
                           grouped_data: Dict[int, List[Point]],
                           fairness_constraints: Dict[int, Tuple[int, int, int]]) -> Tuple[List[Point], float]:
         """Matroid-constrained greedy algorithm with fairness constraints"""
-        print("Running Matroid-Greedy...")
+    
         start_time = time.time()
-        dim = dataP[0].dim if dataP else 0
+        dim = dataP[0].dimension if dataP else 0
         R = []
         selected_indices = []
         fairness_counts = {g: 0 for g in fairness_constraints}
@@ -94,7 +94,7 @@ class GreedyAlgorithms:
             return [], 0.0
 
         # Find initial point with maximum first coordinate
-        max_index = max(range(len(dataP)), key=lambda i: dataP[i].coord[0])
+        max_index = max(range(len(dataP)), key=lambda i: dataP[i].coordinates[0])
         selected_indices.append(max_index)
         R.append(dataP[max_index])
         group = dataP[max_index].get_category(group_id)
@@ -130,7 +130,7 @@ class GreedyAlgorithms:
                     # Add equality constraint
                     expr = gp.LinExpr()
                     for j in range(dim):
-                        expr += dataP[i].coord[j] * X[j]
+                        expr += dataP[i].coordinates[j] * X[j]
                     model.addConstr(expr == 1.0, "eq_constraint")
                     
                     # Add inequality constraints
@@ -138,7 +138,7 @@ class GreedyAlgorithms:
                         ineq_expr = gp.LinExpr()
                         ineq_expr += -X[dim]
                         for j in range(dim):
-                            ineq_expr += (dataP[i].coord[j] - p.coord[j]) * X[j]
+                            ineq_expr += (dataP[i].coordinates[j] - p.coordinates[j]) * X[j]
                         model.addConstr(ineq_expr >= 0, f"ineq_{i}_{len(R)}")
                     
                     # Solve optimization

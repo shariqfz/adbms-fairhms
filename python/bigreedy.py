@@ -91,7 +91,7 @@ class BiGreedy:
         max_utility_D = []
         
         # Initialize max utilities for dataset
-        for uf in tqdm(utility_funcs[:m], desc="Max Utility"):
+        for uf in utility_funcs[:m]:
             max_u = -float('inf')
             max_id = -1
             for p in data:
@@ -209,35 +209,34 @@ class BiGreedy:
 
     @staticmethod
     def run_bi_greedy_plus(grouped_data: Dict[int, List[Point]],
-                          fairness_constraints: Dict[int, Tuple[int, int, int]],
-                          data: List[Point],
-                          group_id: int,
-                          lambda_val: float,
-                          epsilon: float,
-                          utility_funcs: List[Point],
-                          k: int,
-                          max_m: int = 1000) -> Tuple[List[int], float]:
+                        fairness_constraints: Dict[int, Tuple[int, int, int]],
+                        data: List[Point],
+                        group_id: int,
+                        lambda_val: float,
+                        epsilon: float,
+                        utility_funcs: List[Point],
+                        k: int,
+                        max_m: int = 1000) -> Tuple[List[int], float]:
         start_time = time.time()
-        m = min(len(utility_funcs), max_m)
+        m = min(len(utility_funcs), max_m)  # Initial m based on available utilities
         gamma = math.ceil(math.log(2 * m / epsilon))
+        lambda_val = max(lambda_val, 0.01)
 
-        # Initial search
+        # Initial search with capped m
         result, tau = BiGreedy.bi_search(
             grouped_data, fairness_constraints, data, group_id,
-            utility_funcs, k, m, epsilon, gamma)
+            utility_funcs[:m], k, m, epsilon, gamma)
 
-        # Iterative refinement
-        while m < max_m:
+        # Iterative refinement with m capped at utility count
+        while m < min(max_m, len(utility_funcs)):  # Ensure m never exceeds utility count
             prev_m = m
-            m = min(2 * m, max_m)
+            m = min(2 * m, max_m, len(utility_funcs))  # Triple cap
             if m == prev_m:
                 break
 
-            # Update utility functions
-            new_utility = utility_funcs[:m]
             new_result, new_tau = BiGreedy.bi_search(
                 grouped_data, fairness_constraints, data, group_id,
-                new_utility, k, m, epsilon, gamma)
+                utility_funcs[:m], k, m, epsilon, gamma)
 
             if len(new_result) >= k and new_tau >= tau - lambda_val:
                 result = new_result
